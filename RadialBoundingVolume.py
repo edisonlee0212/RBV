@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import csv
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 import math
@@ -516,6 +516,47 @@ class RadialBoundingVolume:
                     f.write(f"f {a} {b} {c}\n")
 
                 offset += len(mesh.vertices)
+    def export_rbv_to_csv(self, filepath: str, *, float_format: str = ".6f") -> None:
+        """
+        Export RBV max_distance grid to CSV.
+
+        Layout (as requested):
+        - Each *row* represents a layer (starting from bottom: layer 0 .. layer_amount-1).
+        - Each *cell* (after the first column) is an RBVSector.max_distance for that layer & sector.
+        - First column (A): the layer index (starting from bottom).
+        - First row (header): sector starting angles in degrees.
+
+        CSV example:
+            layer_idx,0.0,30.0,60.0,...
+            0,0.12,0.15,0.10,...
+            1,0.20,0.18,0.22,...
+            ...
+
+        Notes:
+        - This matches the actual data layout in `self.layers[layer][sector]`.
+        - Angles are computed as `sector_index * (360 / sector_amount)`.
+        """
+        if self.layer_amount <= 0 or self.sector_amount <= 0:
+            raise ValueError("Invalid RBV dimensions.")
+        if not self.layers or len(self.layers) != self.layer_amount:
+            raise ValueError("RBV layers are not initialized. Build RBV first (calculate_volume/from_string).")
+
+        slice_angle = 360.0 / self.sector_amount
+
+        # Header row: first cell label, then each sector's starting angle
+        header = ["layer_idx"] + [format(j * slice_angle, float_format) for j in range(self.sector_amount)]
+
+        with open(filepath, "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(header)
+
+            for layer_idx in range(self.layer_amount):
+                row = [layer_idx]
+                if len(self.layers[layer_idx]) != self.sector_amount:
+                    raise ValueError(f"Layer {layer_idx} has unexpected sector count.")
+                for sector_idx in range(self.sector_amount):
+                    row.append(format(self.layers[layer_idx][sector_idx].max_distance, float_format))
+                w.writerow(row)
 
 def generate_pine_tree_points(
     n_points: int,
@@ -681,3 +722,4 @@ if __name__ == "__main__":
     print("Num layer meshes:", len(meshes))
     print("First mesh: vertices =", len(meshes[0].vertices), "indices =", len(meshes[0].indices))
     rbv.export_as_obj("rbv.obj")
+    rbv.export_rbv_to_csv("rbv_grid.csv")
