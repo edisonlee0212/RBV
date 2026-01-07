@@ -30,6 +30,7 @@ class Vertex:
 @dataclass
 class MeshData:
     """Engine-agnostic mesh container."""
+
     vertices: List[Vertex]
     indices: List[int]
 
@@ -44,7 +45,9 @@ class RadialBoundingVolume:
       - sector selection uses atan2(x, z) (note order), consistent with glm::atan(x, z).
     """
 
-    def __init__(self, layer_amount: int = 16, sector_amount: int = 16, offset: float = 0.0) -> None:
+    def __init__(
+        self, layer_amount: int = 16, sector_amount: int = 16, offset: float = 0.0
+    ) -> None:
         if layer_amount <= 0 or sector_amount <= 0:
             raise ValueError("layer_amount and sector_amount must be positive.")
         self.layer_amount = int(layer_amount)
@@ -73,7 +76,11 @@ class RadialBoundingVolume:
     def _is_numpy_vec3(p: Any) -> bool:
         if np is None:
             return False
-        return isinstance(p, np.ndarray) and p.shape == (3,) and p.dtype.kind in ("f", "i", "u")
+        return (
+            isinstance(p, np.ndarray)
+            and p.shape == (3,)
+            and p.dtype.kind in ("f", "i", "u")
+        )
 
     @staticmethod
     def _as_vec3(p: Any) -> Vec3:
@@ -106,7 +113,11 @@ class RadialBoundingVolume:
         if hasattr(p, "position"):
             return RadialBoundingVolume._as_vec3(getattr(p, "position"))
         if all(hasattr(p, k) for k in ("x", "y", "z")):
-            return (float(getattr(p, "x")), float(getattr(p, "y")), float(getattr(p, "z")))
+            return (
+                float(getattr(p, "x")),
+                float(getattr(p, "y")),
+                float(getattr(p, "z")),
+            )
 
         raise TypeError(f"Unsupported point/node format: {type(p)}")
 
@@ -184,7 +195,10 @@ class RadialBoundingVolume:
         return rbv
 
     def _resize_volumes(self) -> None:
-        self.layers = [[_RBVSector(0.0) for _ in range(self.sector_amount)] for _ in range(self.layer_amount)]
+        self.layers = [
+            [_RBVSector(0.0) for _ in range(self.sector_amount)]
+            for _ in range(self.layer_amount)
+        ]
         self.meshes = []
         self._mesh_generated = False
 
@@ -226,7 +240,9 @@ class RadialBoundingVolume:
 
     def _calculate_sizes(self) -> None:
         self._layer_weights = [0.0 for _ in range(self.layer_amount)]
-        self._sector_weights = [[0.0 for _ in range(self.sector_amount)] for _ in range(self.layer_amount)]
+        self._sector_weights = [
+            [0.0 for _ in range(self.sector_amount)] for _ in range(self.layer_amount)
+        ]
         self._total_weight = 0.0
 
         for i in range(self.layer_amount):
@@ -281,18 +297,27 @@ class RadialBoundingVolume:
         total_level_step = 2
 
         step_angle = slice_angle / (total_angle_step - 1)
-        height_level = self.max_height / self.layer_amount if self.layer_amount > 0 else 0.0
-        step_level = height_level / (total_level_step - 1) if total_level_step > 1 else 0.0
+        height_level = (
+            self.max_height / self.layer_amount if self.layer_amount > 0 else 0.0
+        )
+        step_level = (
+            height_level / (total_level_step - 1) if total_level_step > 1 else 0.0
+        )
 
         # vertex layout (exactly as C++):
         # vertices.resize(totalLevelStep * m_sectorAmount * totalAngleStep * 2 + totalLevelStep);
         ring_count = total_level_step * self.sector_amount * total_angle_step
         vertex_count = ring_count * 2 + total_level_step
         # indices.resize((12 * (totalLevelStep - 1) * totalAngleStep) * m_sectorAmount);
-        index_count = (12 * (total_level_step - 1) * total_angle_step) * self.sector_amount
+        index_count = (
+            12 * (total_level_step - 1) * total_angle_step
+        ) * self.sector_amount
 
         for tier_index in range(self.layer_amount):
-            vertices: List[Vertex] = [Vertex((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0)) for _ in range(vertex_count)]
+            vertices: List[Vertex] = [
+                Vertex((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0))
+                for _ in range(vertex_count)
+            ]
             indices: List[int] = [0 for _ in range(index_count)]
 
             # Build vertices
@@ -305,7 +330,9 @@ class RadialBoundingVolume:
                     for angle_step in range(total_angle_step):
                         actual_angle_step = slice_index * total_angle_step + angle_step
 
-                        current_angle = slice_angle * slice_index + step_angle * angle_step
+                        current_angle = (
+                            slice_angle * slice_index + step_angle * angle_step
+                        )
                         if current_angle >= 360.0:
                             current_angle = 0.0
 
@@ -328,7 +355,10 @@ class RadialBoundingVolume:
                         pos = (dir_xz[0] * rmax, current_height, dir_xz[2] * rmax)
 
                         # side surface vertex
-                        side_idx = level_step * total_angle_step * self.sector_amount + actual_angle_step
+                        side_idx = (
+                            level_step * total_angle_step * self.sector_amount
+                            + actual_angle_step
+                        )
                         uv = (
                             float(level_step) / (total_level_step - 1),
                             float(angle_step) / (total_angle_step - 1),
@@ -341,7 +371,11 @@ class RadialBoundingVolume:
 
                         # cap vertex (duplicated position, different normal)
                         cap_base = ring_count
-                        cap_idx = cap_base + level_step * total_angle_step * self.sector_amount + actual_angle_step
+                        cap_idx = (
+                            cap_base
+                            + level_step * total_angle_step * self.sector_amount
+                            + actual_angle_step
+                        )
                         cap_normal = (0.0, -1.0 if level_step == 0 else 1.0, 0.0)
                         vertices[cap_idx] = Vertex(
                             position=pos,
@@ -363,20 +397,40 @@ class RadialBoundingVolume:
                 for slice_index in range(self.sector_amount):
                     for angle_step in range(total_angle_step):
                         actual_angle_step = slice_index * total_angle_step + angle_step
-                        base = 12 * (level_step * total_angle_step * self.sector_amount + actual_angle_step)
+                        base = 12 * (
+                            level_step * total_angle_step * self.sector_amount
+                            + actual_angle_step
+                        )
 
                         # side rings (first half)
-                        side0 = level_step * total_angle_step * self.sector_amount + actual_angle_step
-                        side1 = (level_step + 1) * total_angle_step * self.sector_amount + actual_angle_step
+                        side0 = (
+                            level_step * total_angle_step * self.sector_amount
+                            + actual_angle_step
+                        )
+                        side1 = (
+                            (level_step + 1) * total_angle_step * self.sector_amount
+                            + actual_angle_step
+                        )
 
                         cap_base = ring_count
-                        cap0 = cap_base + level_step * total_angle_step * self.sector_amount + actual_angle_step
-                        cap1 = cap_base + (level_step + 1) * total_angle_step * self.sector_amount + actual_angle_step
+                        cap0 = (
+                            cap_base
+                            + level_step * total_angle_step * self.sector_amount
+                            + actual_angle_step
+                        )
+                        cap1 = (
+                            cap_base
+                            + (level_step + 1) * total_angle_step * self.sector_amount
+                            + actual_angle_step
+                        )
 
                         center0 = vertex_count - total_level_step + level_step
                         center1 = vertex_count - total_level_step + (level_step + 1)
 
-                        if actual_angle_step < self.sector_amount * total_angle_step - 1:
+                        if (
+                            actual_angle_step
+                            < self.sector_amount * total_angle_step - 1
+                        ):
                             # next within unwrapped ring
                             indices[base + 0] = side0
                             indices[base + 1] = side0 + 1
@@ -396,18 +450,32 @@ class RadialBoundingVolume:
                         else:
                             # wrap to beginning of ring
                             indices[base + 0] = side0
-                            indices[base + 1] = level_step * total_angle_step * self.sector_amount
+                            indices[base + 1] = (
+                                level_step * total_angle_step * self.sector_amount
+                            )
                             indices[base + 2] = side1
 
-                            indices[base + 3] = (level_step + 1) * total_angle_step * self.sector_amount
+                            indices[base + 3] = (
+                                (level_step + 1) * total_angle_step * self.sector_amount
+                            )
                             indices[base + 4] = side1
-                            indices[base + 5] = level_step * total_angle_step * self.sector_amount
+                            indices[base + 5] = (
+                                level_step * total_angle_step * self.sector_amount
+                            )
 
                             indices[base + 6] = cap0
                             indices[base + 7] = center0
-                            indices[base + 8] = cap_base + level_step * total_angle_step * self.sector_amount
+                            indices[base + 8] = (
+                                cap_base
+                                + level_step * total_angle_step * self.sector_amount
+                            )
 
-                            indices[base + 9] = cap_base + (level_step + 1) * total_angle_step * self.sector_amount
+                            indices[base + 9] = (
+                                cap_base
+                                + (level_step + 1)
+                                * total_angle_step
+                                * self.sector_amount
+                            )
                             indices[base + 10] = center1
                             indices[base + 11] = cap1
 
@@ -507,7 +575,9 @@ class RadialBoundingVolume:
             for mesh in meshes:
                 idx = mesh.indices
                 if len(idx) % 3 != 0:
-                    raise ValueError("Mesh indices length must be a multiple of 3 (triangles).")
+                    raise ValueError(
+                        "Mesh indices length must be a multiple of 3 (triangles)."
+                    )
 
                 for i in range(0, len(idx), 3):
                     a = idx[i] + offset
@@ -516,47 +586,129 @@ class RadialBoundingVolume:
                     f.write(f"f {a} {b} {c}\n")
 
                 offset += len(mesh.vertices)
+
+    import csv
+
     def export_rbv_to_csv(self, filepath: str, *, float_format: str = ".6f") -> None:
         """
-        Export RBV max_distance grid to CSV.
+        Export RBV to CSV with layer top heights.
 
-        Layout (as requested):
-        - Each *row* represents a layer (starting from bottom: layer 0 .. layer_amount-1).
-        - Each *cell* (after the first column) is an RBVSector.max_distance for that layer & sector.
-        - First column (A): the layer index (starting from bottom).
-        - First row (header): sector starting angles in degrees.
+        Format:
+        Row 0:
+            ["layer_top_height", angle_0, angle_1, ..., angle_{S-1}]
+        Row i+1:
+            [layer_top_height_i, d_i0, d_i1, ..., d_i{S-1}]
 
-        CSV example:
-            layer_idx,0.0,30.0,60.0,...
-            0,0.12,0.15,0.10,...
-            1,0.20,0.18,0.22,...
-            ...
-
-        Notes:
-        - This matches the actual data layout in `self.layers[layer][sector]`.
-        - Angles are computed as `sector_index * (360 / sector_amount)`.
+        where:
+        - angle_j = j * (360 / sector_amount)
+        - layer_top_height_i = (i + 1) * (max_height / layer_amount)
         """
-        if self.layer_amount <= 0 or self.sector_amount <= 0:
-            raise ValueError("Invalid RBV dimensions.")
-        if not self.layers or len(self.layers) != self.layer_amount:
-            raise ValueError("RBV layers are not initialized. Build RBV first (calculate_volume/from_string).")
+        if not self.layers or self.layer_amount <= 0 or self.sector_amount <= 0:
+            raise ValueError("RBV is not initialized.")
 
         slice_angle = 360.0 / self.sector_amount
+        height_step = self.max_height / self.layer_amount
 
-        # Header row: first cell label, then each sector's starting angle
-        header = ["layer_idx"] + [format(j * slice_angle, float_format) for j in range(self.sector_amount)]
+        header = ["layer_top_height"] + [
+            format(j * slice_angle, float_format) for j in range(self.sector_amount)
+        ]
 
         with open(filepath, "w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f)
-            w.writerow(header)
+            writer = csv.writer(f)
+            writer.writerow(header)
 
             for layer_idx in range(self.layer_amount):
-                row = [layer_idx]
-                if len(self.layers[layer_idx]) != self.sector_amount:
-                    raise ValueError(f"Layer {layer_idx} has unexpected sector count.")
+                layer_top = (layer_idx + 1) * height_step
+                row = [format(layer_top, float_format)]
                 for sector_idx in range(self.sector_amount):
-                    row.append(format(self.layers[layer_idx][sector_idx].max_distance, float_format))
-                w.writerow(row)
+                    row.append(
+                        format(
+                            self.layers[layer_idx][sector_idx].max_distance,
+                            float_format,
+                        )
+                    )
+                writer.writerow(row)
+
+    def import_from_csv(self, filepath: str) -> None:
+        """
+        Reconstruct (overwrite) this RBV from a CSV exported by export_rbv_to_csv().
+
+        Restores:
+          - layer_amount
+          - sector_amount
+          - max_height (exact, taken from last layer_top_height)
+          - max_radius (max of all distances)
+          - layers[*][*].max_distance
+          - meshes + sampling weights (generate_mesh + _calculate_sizes)
+
+        Notes:
+          - This method overwrites the RBV's existing dimensions and contents.
+          - Keeps self.offset unchanged (CSV format does not store it). If you want offset stored too,
+            add a metadata row/comment line and I can extend the parser.
+        """
+        with open(filepath, "r", newline="", encoding="utf-8") as f:
+            rows = list(csv.reader(f))
+
+        if len(rows) < 2:
+            raise ValueError("CSV must contain at least a header row and one data row.")
+
+        header = rows[0]
+        if not header or header[0].strip() != "layer_top_height":
+            raise ValueError("CSV header must start with 'layer_top_height'.")
+
+        sector_amount = len(header) - 1
+        if sector_amount <= 0:
+            raise ValueError("CSV must contain at least one sector column.")
+
+        data_rows = rows[1:]
+        layer_amount = len(data_rows)
+
+        # Overwrite dimensions
+        self.layer_amount = layer_amount
+        self.sector_amount = sector_amount
+
+        # Re-init layers with new dimensions
+        self._resize_volumes()
+
+        layer_tops: List[float] = []
+        max_radius = 0.0
+
+        for layer_idx, row in enumerate(data_rows):
+            if len(row) != 1 + sector_amount:
+                raise ValueError(
+                    f"Row {layer_idx + 2} has {len(row)} columns; expected {1 + sector_amount}."
+                )
+
+            try:
+                layer_top = float(row[0])
+            except Exception as e:
+                raise ValueError(
+                    f"Invalid layer_top_height at CSV row {layer_idx + 2}: {row[0]}"
+                ) from e
+
+            layer_tops.append(layer_top)
+
+            for sector_idx in range(sector_amount):
+                cell = row[1 + sector_idx]
+                try:
+                    d = float(cell)
+                except Exception as e:
+                    raise ValueError(
+                        f"Invalid max_distance at layer {layer_idx}, sector {sector_idx}: {cell}"
+                    ) from e
+
+                self.layers[layer_idx][sector_idx].max_distance = d
+                if d > max_radius:
+                    max_radius = d
+
+        # Recover exact max_height from last layer top.
+        # (Assumes CSV rows are ordered from bottom layer to top layer.)
+        self.max_height = layer_tops[-1]
+        self.max_radius = max_radius
+
+        self.generate_mesh()
+        self._calculate_sizes()
+
 
 def generate_pine_tree_points(
     n_points: int,
@@ -720,6 +872,13 @@ if __name__ == "__main__":
     rbv.calculate_volume(pts)
     meshes = rbv.generate_mesh()
     print("Num layer meshes:", len(meshes))
-    print("First mesh: vertices =", len(meshes[0].vertices), "indices =", len(meshes[0].indices))
-    rbv.export_as_obj("rbv.obj")
+    print(
+        "First mesh: vertices =",
+        len(meshes[0].vertices),
+        "indices =",
+        len(meshes[0].indices),
+    )
+    rbv.export_as_obj("pine_tree_rbv.obj")
     rbv.export_rbv_to_csv("rbv_grid.csv")
+    rbv.import_from_csv("rbv_grid.csv")
+    rbv.export_as_obj("imported_rbv.obj")
